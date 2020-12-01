@@ -2,6 +2,6 @@
 
 for dir in day*/; do
     pushd $dir
-    nimble build
+    make
     popd
 done
