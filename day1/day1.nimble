@@ -2,12 +2,12 @@
 
 version       = "1.0.0"
 author        = "Daniel Meszaros"
-description   = "AoC 2019 - Day 1"
+description   = "AoC 2020 - Day 1"
 license       = "MIT"
 srcDir        = "src"
 bin           = @["day1.exe"]
 
-backend       = "cpp"
+backend       = "c"
 
 # Dependencies
 
