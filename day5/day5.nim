@@ -1,7 +1,6 @@
 import json
 import os
-import strutils
-import options
+import sets
 
 type
   Dir = enum dForward, dBackward, dLeft, dRight
@@ -49,11 +48,9 @@ func `/`(a: SearchArea, d: Dir): SearchArea =
 
 func toSeatId(p: BoardingPass): int =
   var area: SearchArea = (rowMin: 0, rowMax: 128, colMin: 0, colMax: 8)
-  debugEcho($area)
 
   for d in p:
     area = area / d
-    debugEcho($d & " " & $area)
 
   assert(area.rowMin == area.rowMax - 1 and area.colMin == area.colMax - 1)
 
@@ -68,6 +65,29 @@ func part1(passes: seq[BoardingPass]): string =
 
   return $cnt
 
+func generateUniverse(): HashSet[int] =
+  for i in 0..1023:
+    result.incl(i)
+
+
+func generateSeatIdSet(passes: seq[BoardingPass]): HashSet[int] =
+  for p in passes:
+    result.incl(toSeatId(p))
+
+func part2(passes: seq[BoardingPass]): string =
+  let seatIdSet = generateSeatIdSet(passes)
+
+  let seatsThatRemain = generateUniverse() - generateSeatIdSet(passes)
+
+  var results = newSeq[int]()
+  for candSeatId in seatsThatRemain:
+    if ((candSeatId - 1) in seatIdSet) and ((candSeatId + 1) in seatIdSet):
+      results.add(candSeatId)
+
+  assert(len(results) == 1)
+  return $results[0]
+
+
 when isMainModule:
   var
     f: File
@@ -81,7 +101,7 @@ when isMainModule:
 
 
     let res1 = part1(passes)
-    let res2 = ""
+    let res2 = part2(passes)
 
     echo(%*{"output1": res1, "output2": res2})
   else:
