@@ -6,7 +6,7 @@ DBGEXES=$(patsubst %.nim,%.dbg.exe,$(wildcard *.nim))
 all: $(EXES) $(DBGEXES)
 
 %.dbg.exe: %.nim
-	$(NIMC) --checks:on --assertions:on -o:$@ $<
+	$(NIMC) --debugger:native --checks:on --assertions:on -o:$@ $<
 
 %.exe: %.nim
 	$(NIMC) -d:release -o:$@ $<
