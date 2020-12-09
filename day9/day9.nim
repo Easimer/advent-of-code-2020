@@ -31,6 +31,9 @@ func part2(nums: seq[int]): string =
       assert(i_end - i_start >= 1)
       let slice = nums[i_start .. i_end]
       let sum = foldl(slice, a + b)
+      if sum > INV:
+        # increasing i_end cannot possibly make this sum less than INV
+        break
       if sum == INV:
         let smallest = slice[minIndex(slice)]
         let largest = slice[maxIndex(slice)]
