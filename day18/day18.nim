@@ -31,62 +31,74 @@ func tokenize(line: string): seq[Token] =
     elif ch == ')':
       result.add(Token(kind: tkParenClose))
 
-func pushValue(acc: var Option[int], prevOp: var Option[TokenKind], value: int) =
-  if acc.isNone():
-    acc = some(value)
-  else:
-    assert(prevOp.isSome())
-    case prevOp.get():
-      of tkPlus:
-        acc = some(acc.get() + value)
-      of tkMul:
-        acc = some(acc.get() * value)
-      else:
-        assert(false)
-    prevOp = none(TokenKind)
+func evalPrefix(tokens: var seq[Token]): int =
+  let top = tokens.pop()
 
+  case top.kind:
+    of tkNumber:
+      return top.value
+    of tkPlus:
+      let lhs = evalPrefix(tokens)
+      let rhs = evalPrefix(tokens)
+      return lhs + rhs
+    of tkMul:
+      let lhs = evalPrefix(tokens)
+      let rhs = evalPrefix(tokens)
+      return lhs * rhs
+    else: assert(false)
 
-func eval(tokens: seq[Token], i: var int): int =
-  var acc = none(int)
-  var prevOp = none(TokenKind)
-  while i < len(tokens):
-    debugEcho((acc: acc, prevOp: prevOp, i: i, token: tokens[i]))
-    case tokens[i].kind:
-      of tkNumber:
-        pushValue(acc, prevOp, tokens[i].value)
-      of tkPlus:
-        assert(acc.isSome())
-        assert(prevOp.isNone())
-        prevOp = some(tkPlus)
-      of tkMul:
-        assert(acc.isSome())
-        assert(prevOp.isNone())
-        prevOp = some(tkMul)
-      of tkParenOpen:
-        i += 1
-        debugEcho("PSH")
-        let value = eval(tokens, i)
-        debugEcho("POP")
-        pushValue(acc, prevOp, value)
-      of tkParenClose:
-        break
-    i += 1
+func eval(tokens: seq[Token], prec: Table[TokenKind, int]): int =
+  var output: seq[Token]
+  var operators: seq[Token]
 
-  assert(acc.isSome())
-  return acc.get()
+  for i in 0 .. high(tokens):
+    let tok = tokens[i]
+    if tok.kind == tkNumber:
+      output.add(tok)
+    elif tok.kind in @[tkPlus, tkMul]:
+      assert(tok.kind in prec)
+      let tokPrec = prec[tok.kind]
+      while len(operators) > 0:
+        let top = operators[^1]
+        if top.kind == tkParenOpen:
+          break
+        if (prec[top.kind] >= tokPrec):
+          output.add(operators.pop())
+        else:
+          break
+      operators.add(tok)
+    elif tok.kind == tkParenOpen:
+      operators.add(tok)
+    elif tok.kind == tkParenClose:
+      while len(operators) > 0 and operators[^1].kind != tkParenOpen:
+        output.add(operators.pop())
+      assert(len(operators) > 0)
+      assert(operators[^1].kind == tkParenOpen)
+      discard operators.pop()
+  while len(operators) > 0:
+    output.add(operators.pop())
+
+  return evalPrefix(output)
 
 func part1(exprs: seq[seq[Token]]): string =
   var sum = 0
   for expr in exprs:
     var i = 0
-    debugEcho($expr)
-    let value = eval(expr, i)
+    let prec = { tkPlus: 0, tkMul: 0 }.toTable()
+    let value = eval(expr, prec)
     sum += value
 
   return $sum
 
-func part2(exprs: seq[seq[Token]]): string = ""
+func part2(exprs: seq[seq[Token]]): string =
+  var sum = 0
+  for expr in exprs:
+    var i = 0
+    let prec = { tkPlus: 1, tkMul: 0 }.toTable()
+    let value = eval(expr, prec)
+    sum += value
 
+  return $sum
 
 when isMainModule:
   var
