@@ -31,22 +31,25 @@ func tokenize(line: string): seq[Token] =
     elif ch == ')':
       result.add(Token(kind: tkParenClose))
 
-func evalPrefix(tokens: var seq[Token]): int =
+# Evaluates a token string in postfix notation
+func evalPostfix(tokens: var seq[Token]): int =
   let top = tokens.pop()
 
   case top.kind:
     of tkNumber:
       return top.value
     of tkPlus:
-      let lhs = evalPrefix(tokens)
-      let rhs = evalPrefix(tokens)
+      let lhs = evalPostfix(tokens)
+      let rhs = evalPostfix(tokens)
       return lhs + rhs
     of tkMul:
-      let lhs = evalPrefix(tokens)
-      let rhs = evalPrefix(tokens)
+      let lhs = evalPostfix(tokens)
+      let rhs = evalPostfix(tokens)
       return lhs * rhs
     else: assert(false)
 
+# Transforms an infix token string into a postfix one using Dijkstra's
+# shuting-yard algorithm.
 func eval(tokens: seq[Token], prec: Table[TokenKind, int]): int =
   var output: seq[Token]
   var operators: seq[Token]
@@ -78,7 +81,7 @@ func eval(tokens: seq[Token], prec: Table[TokenKind, int]): int =
   while len(operators) > 0:
     output.add(operators.pop())
 
-  return evalPrefix(output)
+  return evalPostfix(output)
 
 func part1(exprs: seq[seq[Token]]): string =
   var sum = 0
