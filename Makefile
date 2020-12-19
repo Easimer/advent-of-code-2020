@@ -6,10 +6,10 @@ DBGEXES=$(patsubst %.nim,%.dbg.exe,$(wildcard *.nim))
 all: $(EXES) $(DBGEXES)
 
 %.dbg.exe: %.nim
-	$(NIMC) --debugger:native --checks:on --assertions:on -o:$@ $<
+	$(NIMC) --multimethods:on --debugger:native --checks:on --assertions:on -o:$@ $<
 
 %.exe: %.nim
-	$(NIMC) -d:release -o:$@ $<
+	$(NIMC) --multimethods:on -d:release -o:$@ $<
 
 clean:
 	rm -f $(EXES) $(DBGEXES)
