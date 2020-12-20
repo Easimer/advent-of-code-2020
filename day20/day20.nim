@@ -116,13 +116,13 @@ iterator borderCoords(coord: Coord, nCoord: Coord): (Coord, Coord) =
     for x in 0..TILE_WIDTH-1:
       yield ((x, 0), (x, TILE_HEIGHT - 1))
 
-func transform(c: Coord, rot: Rotation): Coord =
+func transform(c: Coord, width, height: int, rot: Rotation): Coord =
   let
     x = c[0]
     y = c[1]
 
-  assert(x in 0..TILE_WIDTH-1)
-  assert(y in 0..TILE_HEIGHT-1)
+  assert(x in 0..width-1)
+  assert(y in 0..height-1)
 
   var
     tx: int
@@ -133,27 +133,27 @@ func transform(c: Coord, rot: Rotation): Coord =
       ty = y
       tx = x
     of rEast:
-      ty = (TILE_HEIGHT - x - 1)
+      ty = (height - x - 1)
       tx = y
     of rSouth:
-      ty = (TILE_HEIGHT - y - 1)
-      tx = (TILE_WIDTH - x - 1)
+      ty = (height - y - 1)
+      tx = (width - x - 1)
     of rWest:
       ty = x
-      tx = (TILE_WIDTH - y - 1)
+      tx = (width - y - 1)
 
-  assert(tx in 0..TILE_WIDTH-1)
-  assert(ty in 0..TILE_HEIGHT-1)
+  assert(tx in 0..width-1)
+  assert(ty in 0..height-1)
 
   return (tx, ty)
 
-func transform(c: Coord, f: Flip): Coord =
+func transform(c: Coord, width, height: int, f: Flip): Coord =
   let
     x = c[0]
     y = c[1]
 
-  assert(x in 0..TILE_WIDTH-1)
-  assert(y in 0..TILE_HEIGHT-1)
+  assert(x in 0..width-1)
+  assert(y in 0..height-1)
 
   var
     tx = x
@@ -161,14 +161,14 @@ func transform(c: Coord, f: Flip): Coord =
 
   case f:
     of fX:
-      tx = TILE_WIDTH - x - 1
+      tx = width - x - 1
     #of fY:
-      #ty = TILE_HEIGHT - y - 1
+      #ty = height - y - 1
     of fNone:
       discard
 
-  assert(tx in 0..TILE_WIDTH-1)
-  assert(ty in 0..TILE_HEIGHT-1)
+  assert(tx in 0..width-1)
+  assert(ty in 0..height-1)
   return (tx, ty)
 
 func accessTile(tiles: Table[int, TileData], id: int, f: Flip, r: Rotation, x: int, y: int): bool =
@@ -176,7 +176,7 @@ func accessTile(tiles: Table[int, TileData], id: int, f: Flip, r: Rotation, x: i
   assert(x in 0..TILE_WIDTH-1)
   assert(y in 0..TILE_HEIGHT-1)
 
-  let (tx, ty) = transform(transform((x, y), r), f)
+  let (tx, ty) = transform(transform((x, y), TILE_WIDTH, TILE_HEIGHT, r), TILE_WIDTH, TILE_HEIGHT, f)
 
   tiles[id].data[ty * TILE_WIDTH + tx]
 
@@ -198,7 +198,6 @@ func mismatchPresent(tiles: Table[int, TileData], configuration: Configuration):
   return false
 
 func allTilesAreInConfiguration(tiles: Table[int, TileData], configuration: Configuration): bool =
-  #debugEcho((len(tiles), len(configuration)))
   len(tiles) == len(configuration)
 
 func extent(c: Configuration): tuple[minX: int, minY: int, maxX: int, maxY: int] =
@@ -255,25 +254,129 @@ func findCornersProduct(c: Configuration): int =
 
   return c0 * c1 * c2 * c3
 
-proc part1(tiles: seq[TileData]): (Configuration, string) =
-  var tileTable: Table[int, TileData]
-  for tile in tiles:
-    tileTable[tile.id] = tile
-
-  let res = asd(tileTable, Configuration())
+proc part1(tiles: Table[int, TileData]): (Configuration, string) =
+  let res = asd(tiles, Configuration())
   assert(res.isSome())
   let conf = res.get()
 
   return (conf, $findCornersProduct(conf))
 
-proc reassemble(tiles: seq[TileData], conf: Configuration): Image =
+proc reassemble(tiles: Table[int, TileData], conf: Configuration): Image =
   let (minX, minY, maxX, maxY) = extent(conf)
-  let tw = maxX - minX
-  let th = maxY - minY
-  let width = tw * 9
-  let height = th * 9
+  let tw = maxX - minX + 1
+  let th = maxY - minY + 1
+  let width = tw * 8
+  let height = th * 8
   result.width = width
   result.height = height
+
+  var Tx = minX
+  var Ty = minY
+  var tx = 1
+  var ty = 1
+
+  while Ty <= maxY:
+    while Tx <= maxX:
+      assert((Tx, Ty) in conf)
+      let (id, rot, flip) = conf[(Tx, Ty)]
+      result.pixels.add(accessTile(tiles, id, flip, rot, tx, ty))
+      tx += 1
+      if tx == 9:
+        Tx += 1
+        tx = 1
+
+    ty += 1
+    Tx = minX
+
+    if ty == 9:
+      Ty += 1
+      ty = 1
+
+func access(img: Image, f: Flip, r: Rotation, x, y: int): bool =
+  assert(x in 0..img.width-1)
+  assert(y in 0..img.height-1)
+
+  let (tx, ty) = transform(transform((x, y), img.width, img.height, r), img.width, img.height, f)
+
+  img.pixels[ty * img.width + tx]
+
+proc display(img: Image) =
+  echo((w: img.width, h: img.height))
+  for y in 0..img.height-1:
+    for x in 0..img.width-1:
+      stdout.write(if img.pixels[y * img.width + x]: '#' else: '.')
+
+    stdout.write("\n")
+
+func countKrakenParts(kraken: openarray[string]): int =
+  for s in kraken:
+    for ch in s:
+      result += (if ch == '#': 1 else: 0)
+
+const
+  theSeaMonster = [
+    "                  # ",
+    "#    ##    ##    ###",
+    " #  #  #  #  #  #   "
+  ]
+
+const KRAKEN_HEIGHT = len(theSeaMonster)
+const KRAKEN_WIDTH = len(theSeaMonster[0])
+const KRAKEN_TOTAL_PARTS = countKrakenParts(theSeaMonster)
+
+## This is what I call the "kraken" gate
+## Mask Img | Out Kraken
+##    .   . |   1      0
+##    .   # |   1      0
+##    #   . |   0      0
+##    #   # |   1      1
+##
+## The sea monster is present in a given region of the image
+## if `kraken(pixel in the mask, pixel in the image)` is true
+## for all (pixel in the mask, pixel in the image) of the region
+##
+## Returns whether the mask matches the image plus whether the image contains
+## a part of the kraken.
+func kraken(mask: bool, image: bool): tuple[match: bool, partOf: bool] =
+  ((not mask) or image, mask and image)
+
+func kraken(img: Image, rotation: Rotation, flip: Flip, maskPos: (int, int)): Option[HashSet[Coord]] =
+  if not (maskPos[0] + KRAKEN_WIDTH < img.width): return
+  if not (maskPos[1] + KRAKEN_HEIGHT < img.height): return
+
+  var s: HashSet[Coord]
+
+  for y in 0..KRAKEN_HEIGHT-1:
+    let iy = maskPos[1] + y
+    for x in 0..KRAKEN_WIDTH-1:
+      let ix = maskPos[0] + x
+      let px = access(img, flip, rotation, ix, iy)
+      let (match, partOf) = kraken(theSeaMonster[y][x] == '#', px)
+      if not match:
+        return
+      if match and partOf:
+        s.incl((ix, iy))
+
+  assert(len(s) == KRAKEN_TOTAL_PARTS)
+  return some(s)
+
+func part2(img: Image): string =
+  var krakenParts: HashSet[Coord]
+  for rotation in rotations():
+    for flip in flips():
+      for y in 0..img.height-1:
+        for x in 0..img.width-1:
+          let parts = kraken(img, rotation, flip, (x, y))
+          if parts.isSome():
+            #debugEcho("Found kraken at " & $(x, y))
+            krakenParts = krakenParts + parts.get()
+            #debugEcho(parts.get())
+
+  var cnt = 0
+  for pixel in img.pixels:
+    if pixel: cnt += 1
+
+  return $(cnt - len(krakenParts))
 
 when isMainModule:
   var
@@ -286,8 +389,15 @@ when isMainModule:
   if open(f, inputPath):
     while readTile(f, tile):
       tiles.add(tile)
-    let (conf, res1) = part1(tiles)
-    let res2 = "" 
+
+    var tileTable: Table[int, TileData]
+    for tile in tiles:
+      tileTable[tile.id] = tile
+
+    let (conf, res1) = part1(tileTable)
+    let img = reassemble(tileTable, conf)
+    #display(img)
+    let res2 = part2(img)
 
     echo(%*{"output1": res1, "output2": res2})
   else:
