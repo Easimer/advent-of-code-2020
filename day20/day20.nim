@@ -13,6 +13,19 @@ import tables
 const TILE_WIDTH = 10
 const TILE_HEIGHT = 10
 
+# There are some rotation-flip combinations which result in the same
+# transformation.
+# For example, a tile facing north with it's X axis flipped is the same as if
+# the tile was facing west with it's Y axis flipped.
+#
+#   N E S W
+# N 0 1 2 3
+# X 4 5 6 7
+# Y 7 6 5 4
+#
+# Due to this property of these transformations, we don't flip the Y-axes
+# of the tiles, because that would lead to duplicate work.
+
 type
   TileData = object
     id: int
@@ -22,10 +35,17 @@ type
   Rotation = enum
     rNorth, rEast, rSouth, rWest
   Flip = enum
-    fNone, fX, fY
+    #fNone, fX, fY
+    # We don't actually need fY
+    fNone, fX
   TileID = int
 
   Configuration = Table[Coord, (TileID, Rotation, Flip)]
+
+  Image = object
+    width: int
+    height: int
+    pixels: seq[bool]
 
 proc readTile(f: File, t: var TileData): bool =
   if f.endOfFile():
@@ -48,7 +68,8 @@ iterator rotations(): Rotation =
   for r in [rNorth, rEast, rSouth, rWest]: yield r
 
 iterator flips(): Flip =
-  for f in [fNone, fX, fY]: yield f
+  #for f in [fNone, fX, fY]: yield f
+  for f in [fNone, fX]: yield f
 
 iterator unboundTiles(tiles: Table[int, TileData], configuration: Configuration): TileID =
   var boundIdSet: HashSet[TileID]
@@ -141,8 +162,8 @@ func transform(c: Coord, f: Flip): Coord =
   case f:
     of fX:
       tx = TILE_WIDTH - x - 1
-    of fY:
-      ty = TILE_HEIGHT - y - 1
+    #of fY:
+      #ty = TILE_HEIGHT - y - 1
     of fNone:
       discard
 
@@ -169,37 +190,31 @@ func mismatchPresent(tiles: Table[int, TileData], configuration: Configuration):
           if nCoord in configuration: # for every neighbor
             let (nID, nRotation, nFlip) = configuration[nCoord]
 
-            var s0: seq[bool]
-            var s1: seq[bool]
-            var failed = false
             for bc in borderCoords(coord, nCoord): # check coordinates
               let px = accessTile(tiles, id, flip, rotation, bc[0][0], bc[0][1])
               let nPx = accessTile(tiles, nID, nFlip, nRotation, bc[1][0], bc[1][1])
-              s0.add(px)
-              s1.add(nPx)
-
-              if px != nPX:
-                failed = true
-            if failed:
-              #debugEcho("Mismatch: " & $(id: (id, nID), rot: (rotation, flip, nRotation, nFlip), s0: s0, s1: s1))
-              return true
+              if px != nPx:
+                return true
   return false
 
 func allTilesAreInConfiguration(tiles: Table[int, TileData], configuration: Configuration): bool =
   #debugEcho((len(tiles), len(configuration)))
   len(tiles) == len(configuration)
 
-proc debugEchoTileIDs(configuration: Configuration) =
-  var minX = 9999
-  var maxX = -9999
-  var minY = 9999
-  var maxY = -9999
+func extent(c: Configuration): tuple[minX: int, minY: int, maxX: int, maxY: int] =
+  result.minX = 9999
+  result.maxX = -9999
+  result.minY = 9999
+  result.maxY = -9999
 
-  for coord, rotTileId in configuration:
-    minX = min(coord[0], minX)
-    maxX = max(coord[0], maxX)
-    minY = min(coord[1], minY)
-    maxY = max(coord[1], maxY)
+  for coord, tileIdTrans in c:
+    result.minX = min(coord[0], result.minX)
+    result.maxX = max(coord[0], result.maxX)
+    result.minY = min(coord[1], result.minY)
+    result.maxY = max(coord[1], result.maxY)
+
+proc debugEchoTileIDs(configuration: Configuration) =
+  let (minX, minY, maxX, maxY) = extent(configuration)
 
   debugEcho(">=====================")
   debugEcho((minX, minY))
@@ -231,16 +246,7 @@ proc asd(tiles: Table[int, TileData], configuration: Configuration): Option[Conf
           if res.isSome(): return res
 
 func findCornersProduct(c: Configuration): int =
-  var minX = 9999
-  var maxX = -9999
-  var minY = 9999
-  var maxY = -9999
-
-  for coord, tileIdTrans in c:
-    minX = min(coord[0], minX)
-    maxX = max(coord[0], maxX)
-    minY = min(coord[1], minY)
-    maxY = max(coord[1], maxY)
+  let (minX, minY, maxX, maxY) = extent(c)
 
   let c0 = c[(minX, minY)][0]
   let c1 = c[(minX, maxY)][0]
@@ -249,15 +255,25 @@ func findCornersProduct(c: Configuration): int =
 
   return c0 * c1 * c2 * c3
 
-proc part1(tiles: seq[TileData]): string =
+proc part1(tiles: seq[TileData]): (Configuration, string) =
   var tileTable: Table[int, TileData]
   for tile in tiles:
     tileTable[tile.id] = tile
 
   let res = asd(tileTable, Configuration())
   assert(res.isSome())
+  let conf = res.get()
 
-  return $findCornersProduct(res.get())
+  return (conf, $findCornersProduct(conf))
+
+proc reassemble(tiles: seq[TileData], conf: Configuration): Image =
+  let (minX, minY, maxX, maxY) = extent(conf)
+  let tw = maxX - minX
+  let th = maxY - minY
+  let width = tw * 9
+  let height = th * 9
+  result.width = width
+  result.height = height
 
 when isMainModule:
   var
@@ -270,7 +286,7 @@ when isMainModule:
   if open(f, inputPath):
     while readTile(f, tile):
       tiles.add(tile)
-    let res1 = part1(tiles)
+    let (conf, res1) = part1(tiles)
     let res2 = "" 
 
     echo(%*{"output1": res1, "output2": res2})
