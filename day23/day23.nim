@@ -55,7 +55,7 @@ func labelInTriCups(tricups: Cup, label: int): bool =
       tricups.next.next.label == label
 
 type
-  Lookup = Table[int, Cup]
+  Lookup = seq[Cup]
 
 func move(current: var Cup, lookup: Lookup, maxLabel: int) =
   let tricups = current.next
@@ -75,7 +75,8 @@ func move(current: var Cup, lookup: Lookup, maxLabel: int) =
   dst.next = tricups
   tricups.next.next.next = dstNext
 
-func makeLookup(cups: Cup): Lookup =
+func makeLookup(cups: Cup, maxLabel: int): Lookup =
+  result = newSeq[Cup](maxLabel + 1)
   var cur = cups
   let firstLabel = cur.label
   result[firstLabel] = cur
@@ -85,10 +86,11 @@ func makeLookup(cups: Cup): Lookup =
     cur = cur.next
 
 proc part1(cups: Cup): string =
+  let maxLabel = 9
   var cups0 = deepCopy(cups)
-  let lookup = makeLookup(cups0)
+  let lookup = makeLookup(cups0, maxLabel)
   for i in 0..99:
-    move(cups0, lookup, 9)
+    move(cups0, lookup, maxLabel)
     cups0 = cups0.next
 
   var start = cups0
@@ -101,12 +103,13 @@ proc part1(cups: Cup): string =
     start = start.next
 
 proc part2(cups: Cup): string =
+  let maxLabel = 1000000
   var cups1 = deepCopy(cups)
 
   var last = cups1.next
   while last.next.label != cups1.label:
     last = last.next
-  for i in 10..1000000:
+  for i in 10..maxLabel:
     var n: Cup
     new(n)
     n.label = i
@@ -114,10 +117,10 @@ proc part2(cups: Cup): string =
     last.next = n
     last = n
 
-  let lookup = makeLookup(cups1)
+  let lookup = makeLookup(cups1, maxLabel)
 
   for i in 0..9999999:
-    move(cups1, lookup, 1000000)
+    move(cups1, lookup, maxLabel)
     cups1 = cups1.next
 
   var start = lookup[1].next
