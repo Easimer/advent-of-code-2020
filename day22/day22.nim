@@ -16,8 +16,9 @@ import hashes
 type
   Deck = Deque[int]
   PlayerIndex = range[0..1]
-
   Round = array[2, Deck]
+  GameResult = tuple[score: int, player: PlayerIndex]
+  Memory = Table[array[2, Deck], GameResult]
 
 func hash(deck: Deck): Hash =
   var h: Hash = 0
@@ -36,16 +37,12 @@ proc readDeck(f: var File): Deck =
 func `~+`(playerIdx: PlayerIndex): int =
   if playerIdx == 0: 1 else: 0
 
-func deckScore(deckOrig: Deck): int =
-  var deck = deckOrig
+func deckScore(deck: Deck): int =
   var mul = 1
-  var sum = 0
 
-  while len(deck) > 0:
-    sum += deck.popLast() * mul
+  for i in countdown(len(deck) - 1, 0):
+    result += deck[i] * mul
     mul += 1
-
-  return sum
 
 func part1(deck1, deck2: Deck): string =
   var decks = [deck1, deck2]
@@ -57,10 +54,6 @@ func part1(deck1, deck2: Deck): string =
 
     if len(decks[~+winner]) == 0:
       return $deckScore(decks[winner])
-
-type
-  GameResult = tuple[score: int, player: PlayerIndex]
-  Memory = Table[array[2, Deck], GameResult]
 
 func makeDeckCopy(deck: Deck, count: int): Deck =
   for i in 0..count-1:
