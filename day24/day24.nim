@@ -70,17 +70,78 @@ func translateToDelta(d: Direction): Coord =
 func `+`(l: Coord, r: Coord): Coord =
   (l.x + r.x, l.y + r.y, l.z + r.z)
 
-func part1(paths: seq[seq[Direction]]): string =
-  var state: HexGridState
+iterator neighborDeltas(): Coord =
+  yield (1, -1, 0)
+  yield (-1, 1, 0)
+  yield (1, 0, -1)
+  yield (0, 1, -1)
+  yield (0, -1, 1)
+  yield (-1, 0, 1)
+
+func bounds(s: HexGridState): tuple[min: Coord, max: Coord] =
+  result.min = (9999, 9999, 9999)
+  result.max = (-9999, -9999, -9999)
+  for c in s:
+    result.min[0] = min(result.min[0], c[0])
+    result.max[0] = max(result.max[0], c[0])
+    result.min[1] = min(result.min[1], c[1])
+    result.max[1] = max(result.max[1], c[1])
+    result.min[2] = min(result.min[2], c[2])
+    result.max[2] = max(result.max[2], c[2])
+
+func grow(bmin, bmax: Coord): tuple[min: Coord, max: Coord] =
+  result.min = (bmin[0] - 1, bmin[1] - 1, bmin[2] - 1)
+  result.max = (bmax[0] + 1, bmax[1] + 1, bmax[2] + 1)
+
+func countBlackNeighbors(s: HexGridState, c: Coord): int =
+  for delta in neighborDeltas():
+    let nc = c + delta
+    if nc in s:
+      result += 1
+
+func mutate(current: HexGridState): HexGridState =
+  let (bmin0, bmax0) = bounds(current)
+  let (bmin, bmax) = grow(bmin0, bmax0)
+
+  result = current
+
+  for z in bmin.z .. bmax.z:
+    for y in bmin.y .. bmax.y:
+      for x in bmin.x .. bmax.x:
+        let coord = (x, y, z)
+        let neighbors = countBlackNeighbors(current, coord)
+        if coord in current:
+          # flipped -> black
+          if neighbors == 0 or neighbors > 2:
+            result.excl(coord)
+        else:
+          # not flipped -> white
+          if neighbors == 2:
+            result.incl(coord)
+
+func makeHexGrid(paths: seq[seq[Direction]]): HexGridState =
   for path in paths:
     let coord = foldl(path, a + translateToDelta(b), (0, 0, 0))
-    debugEcho(coord)
-    if coord in state:
-      state.excl(coord)
+    if coord in result:
+      result.excl(coord)
     else:
-      state.incl(coord)
+      result.incl(coord)
 
-  return $len(state)
+func part1(paths: seq[seq[Direction]]): string =
+  return $len(makeHexGrid(paths))
+
+func part2(paths: seq[seq[Direction]]): string =
+  let initial = makeHexGrid(paths)
+
+  var buffers: array[2, HexGridState] = [initial, initial]
+  var cur = 0
+
+  for day in 1..100:
+    let other = if cur == 0: 1 else: 0
+    buffers[other] = mutate(buffers[cur])
+    cur = other
+
+  return $len(buffers[cur])
 
 when isMainModule:
   var
@@ -94,9 +155,8 @@ when isMainModule:
       paths.add(line.get())
       line = readPath(f)
 
-    echo(paths)
     let res1 = part1(paths)
-    let res2 = ""
+    let res2 = part2(paths)
     echo(%*{"output1": res1, "output2": res2})
   else:
     echo("Couldn't open input file " & inputPath & "!")
