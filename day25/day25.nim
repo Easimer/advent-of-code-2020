@@ -41,8 +41,6 @@ func part1(pub0, pub1: int): string =
 
   return $secret
 
-func part2(pub0, pub1: int): string = ""
-
 when isMainModule:
   var
     f: File
@@ -53,8 +51,7 @@ when isMainModule:
     let pub1 = parseInt(f.readline())
 
     let res1 = part1(pub0, pub1)
-    let res2 = part2(pub0, pub1)
-    echo(%*{"output1": res1, "output2": res2})
+    echo(%*{"output1": res1, "output2": "---"})
   else:
     echo("Couldn't open input file " & inputPath & "!")
 
